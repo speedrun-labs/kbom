@@ -1,0 +1,40 @@
+{
+  "extraction_method": "Claude Opus 4.7 vision, reading three cropped views (plan + interior elevation + spec table) from page 2, unaided by the Excel ground truth",
+  "source": "pages/page_02.png → crops/01_plan_view.png, 04_interior_elev.png, 02_spec_table.png",
+  "reasoning_notes": [
+    "Plan view shows dimension ladder 20|280|600|400|800|20 = 2,120mm total run.",
+    "Interior elevation shows upper dimension ladder 20|260|20|600|20|380|800|20 = 2,120mm — upper segment widths don't match plan (upper has 260 where plan has 280), suggesting plan includes base-cabinet widths while upper shows the wall-cabinet-to-filler segmentation.",
+    "The 600mm upper segment has the '디럭스형후드' (deluxe hood) label, so no wall cabinet there — it's hood space.",
+    "The 5× 400mm labels visible in the elevation middle are tile-grid reference dimensions (400×250 ceramic tile layout), NOT cabinet widths.",
+    "The X-boxed area on plan right side is the refrigerator position — no base cabinet there, but wall cabinet continues above.",
+    "Upper cabinets: 800H; lower cabinets: 700H; backsplash: 580H; plinth: 150H. Cabinet depths: 290D upper, 570D lower.",
+    "Wall-cabinet end panels: visible as thin vertical strips between upper cabinets — size guessed at 20D filler but unable to confirm dimension without side-view detail.",
+    "Trim pieces (baseboard, valance/fascia) inferred from spec table and standard LH detail but NOT directly measurable in these cropped views."
+  ],
+  "predicted_rows": [
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "26A", "confidence": 0.55, "source": "upper dim ladder, left filler"},
+    {"category": "목대", "name": "일반벽장",    "w": 260, "d": 290, "h": 800, "type": "26A", "confidence": 0.85, "source": "upper dim ladder segment 2"},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "26A", "confidence": 0.55, "source": "upper dim ladder"},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "26A", "confidence": 0.55, "source": "upper dim ladder, after hood gap"},
+    {"category": "목대", "name": "일반벽장",    "w": 380, "d": 290, "h": 800, "type": "26A", "confidence": 0.85, "source": "upper dim ladder segment 6"},
+    {"category": "목대", "name": "일반벽장",    "w": 800, "d": 290, "h": 800, "type": "26A", "confidence": 0.9,  "source": "upper dim ladder segment 7"},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "26A", "confidence": 0.55, "source": "upper dim ladder, right filler"},
+    {"category": "목대", "name": "찬넬밑장",    "w": 280, "d": 570, "h": 700, "type": "26A", "confidence": 0.7,  "source": "plan segment 2, plain base"},
+    {"category": "목대", "name": "찬넬렌지밑장", "w": 600, "d": 570, "h": 700, "type": "26A", "confidence": 0.85, "source": "plan segment 3 with burner symbols"},
+    {"category": "목대", "name": "찬넬3단서랍밑장", "w": 400, "d": 570, "h": 700, "type": "26A", "confidence": 0.75, "source": "plan segment 4 — inferred drawer stack from middle position"},
+    {"category": "목대", "name": "찬넬씽크밑장", "w": 800, "d": 570, "h": 700, "type": "26A", "confidence": 0.95, "source": "plan segment 5 with sink bowl symbol"},
+
+    {"category": "상품", "name": "씽크볼(630용) 수세미망 포함", "w": null, "d": null, "h": null, "type": "26A", "confidence": 0.95, "source": "spec table: 싱크볼 630 언더싱크용 수세미망 포함"},
+    {"category": "상품", "name": "BMC상판",                 "w": null, "d": null, "h": null, "type": "26A", "confidence": 0.9,  "source": "spec table: 상판 인조대리석(BMC)"},
+    {"category": "상품", "name": "후크배수구",                "w": null, "d": null, "h": null, "type": "26A", "confidence": 0.75, "source": "spec table: 배수구 후크배수구"},
+    {"category": "상품", "name": "칼꽂이",                   "w": null, "d": null, "h": null, "type": "26A", "confidence": 0.8,  "source": "spec table: 악세사리 칼꽂이"},
+    {"category": "상품", "name": "행거레일",                  "w": null, "d": null, "h": null, "type": "26A", "confidence": 0.7,  "source": "spec table: 악세사리 조리걸이세트 — mapped to 행거레일 via vocab"}
+  ],
+  "items_not_predicted": [
+    "밑장휠라 150×20×850 — base filler panel; not visible in these cropped views without side-section detail",
+    "밑장판넬 650×20×850 — base end panel adjacent to fridge; not distinguishable from fridge-position marking in plan view",
+    "장식판 60×20×2400 — decorative trim/valance; inferable from spec table but dimensions not visible in plan/elevation",
+    "걸레받이 150×20×2400 — baseboard/kickplate; inferable from spec table but dimensions not visible",
+    "2단컵걸이선반 — 2-tier cup shelf product; not mentioned in spec table visible in crop"
+  ]
+}

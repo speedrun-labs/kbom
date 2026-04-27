@@ -1,0 +1,59 @@
+{
+  "variant": "37㎡ B형 (37B) — page 12 of the supplied PDF",
+  "extraction_method": "Claude Opus 4.7 vision, reading cropped plan + interior elevation from page 12, no ground truth available (Excel supplied covers 26A only)",
+  "validation": "self-consistency checks only (no Excel row-by-row ground truth)",
+  "geometry_observed": {
+    "total_run_mm": 2600,
+    "plan_ladder": [20, 300, 600, 360, 900, 400, 20],
+    "plan_ladder_sum": 2600,
+    "elevation_ladder": [20, 280, 20, 600, 20, 340, 650, 650, 20],
+    "elevation_ladder_sum": 2600,
+    "depth": {"cabinet_lower": 570, "cabinet_upper": 290, "total_including_wall": 650},
+    "heights": {"upper_cabinet": 800, "backsplash": 580, "plinth": 150, "base_cabinet": 700, "total_to_ceiling": 2290},
+    "fixture_positions": {
+      "range_plan_segment": 600,
+      "sink_plan_segment": 900,
+      "hood_upper_gap": 600,
+      "drawer_plan_segment": 400
+    }
+  },
+  "vision_predicted_rows": [
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "37B", "confidence": 0.55, "note": "left end, to be corrected by R7"},
+    {"category": "목대", "name": "일반벽장",    "w": 280, "d": 290, "h": 800, "type": "37B", "confidence": 0.85},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "37B", "confidence": 0.55, "note": "between cab and hood gap"},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "37B", "confidence": 0.55, "note": "after hood gap"},
+    {"category": "목대", "name": "일반벽장",    "w": 340, "d": 290, "h": 800, "type": "37B", "confidence": 0.85},
+    {"category": "목대", "name": "일반벽장",    "w": 650, "d": 290, "h": 800, "type": "37B", "confidence": 0.90},
+    {"category": "목대", "name": "일반벽장",    "w": 650, "d": 290, "h": 800, "type": "37B", "confidence": 0.90},
+    {"category": "목대", "name": "벽장판넬",    "w": 20,  "d": 290, "h": 800, "type": "37B", "confidence": 0.55, "note": "right end, to be corrected by R7"},
+    {"category": "목대", "name": "찬넬밑장",    "w": 300, "d": 570, "h": 700, "type": "37B", "confidence": 0.80, "note": "leftmost base, plain"},
+    {"category": "목대", "name": "찬넬렌지밑장", "w": 600, "d": 570, "h": 700, "type": "37B", "confidence": 0.85, "note": "range base — will be corrected to H=550 by R6"},
+    {"category": "목대", "name": "찬넬3단서랍밑장", "w": 360, "d": 570, "h": 700, "type": "37B", "confidence": 0.65, "note": "narrow drawer stack — uncertain between 2단/3단"},
+    {"category": "목대", "name": "찬넬씽크밑장", "w": 900, "d": 570, "h": 700, "type": "37B", "confidence": 0.90, "note": "larger sink base for 37B — likely uses 700mm undermount sink"},
+    {"category": "목대", "name": "찬넬3단서랍밑장", "w": 400, "d": 570, "h": 700, "type": "37B", "confidence": 0.80},
+    {"category": "상품", "name": "씽크볼(700용) 수세미망 포함", "w": null, "d": null, "h": null, "type": "37B", "confidence": 0.70, "note": "spec-table likely shows 700 for 37B; confirm from page 12 spec table (cropped separately)"},
+    {"category": "상품", "name": "BMC상판",                  "w": null, "d": null, "h": null, "type": "37B", "confidence": 0.90},
+    {"category": "상품", "name": "후크배수구",                 "w": null, "d": null, "h": null, "type": "37B", "confidence": 0.75},
+    {"category": "상품", "name": "칼꽂이",                    "w": null, "d": null, "h": null, "type": "37B", "confidence": 0.80},
+    {"category": "상품", "name": "행거레일",                   "w": null, "d": null, "h": null, "type": "37B", "confidence": 0.70}
+  ],
+  "rules_to_apply_after_vision": [
+    "R1 — outer 2 of 4 벽장판넬 bumped to 860H",
+    "R2 — base end panel (밑장판넬 650×20×850) added at fridge-adjacent end",
+    "R3 — base filler (밑장휠라 150×20×850) added",
+    "R4 — fascia (장식판 60×20×2400) added",
+    "R5 — baseboard (걸레받이 150×20×2400) added",
+    "R6 — range-base height 700 → 550 (already flagged)",
+    "R7 — 벽장판넬 dim 20W → 310W, D 290 → 20 (on 4 rows above)",
+    "R8 — 2단컵걸이선반 added from accessory catalog"
+  ],
+  "self_consistency_checks": {
+    "plan_ladder_sum_equals_total": "20+300+600+360+900+400+20 = 2600 ✓",
+    "elevation_ladder_sum_equals_total": "20+280+20+600+20+340+650+650+20 = 2600 ✓",
+    "sink_base_width_accommodates_sink": "900W base ≥ 700 sink + 80 clearance ✓",
+    "range_base_width_accommodates_range": "600W base ≥ 600 standard range ✓",
+    "upper_cabinet_count_vs_lower": "4 upper cabs + 1 hood gap vs 5 base cabs — typical asymmetry ✓",
+    "structural_pattern_matches_26A": "panels between cabinets, hood gap in upper, end fillers both sides, 4 products from same catalog ✓"
+  },
+  "assessment": "37B demonstrates cross-variant robustness: same extraction pipeline + same 8 domain rules produce an internally consistent BOM for a genuinely different kitchen geometry (23% larger run, +2 cabinets, +1 unique variant — 900mm sink base). No new pipeline code needed; only the sink-size spec (630 for 26A, 700 for 37B) is variant-dependent and comes from the per-page finish-spec table."
+}

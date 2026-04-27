@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data — kept locally, not committed
+phase0/extracts/
+phase0/pages/
+phase0/crops*/
+phase0/roundtrip/working*.xlsx
+phase0/roundtrip/recalc*/
+phase0/roundtrip/snapshot_baseline.json
+
+# Published standards: track the .md report, exclude the heavy source files
+published_standards/*.pdf
+published_standards/*.xls
+published_standards/*.xlsx
+published_standards/extracts/
+
+# Generated artifacts
+data/runs/
+*.log
+
+# Environment
+.env
+.env.local

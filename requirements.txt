@@ -1,0 +1,24 @@
+# Core dependencies for the KBOM Stage 1 prototype
+
+# PDF parsing
+pdfplumber>=0.11.0
+pymupdf>=1.24.0
+
+# Excel
+openpyxl>=3.1.0
+xlrd>=2.0.0
+
+# Image handling
+Pillow>=10.0.0
+
+# Data
+pandas>=2.0.0
+
+# UI
+streamlit>=1.36.0
+
+# AI vision (for Stage 1 we use Claude API)
+anthropic>=0.34.0
+
+# Misc
+pyyaml>=6.0

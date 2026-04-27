@@ -1,0 +1,386 @@
+{
+  "source_sheet": "원가산출표",
+  "unit_type": "26A",
+  "rows": [
+    {
+      "row_index": 7,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 860.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 8,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 260.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 9,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 10,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 11,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 380.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 12,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 800.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 13,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 860.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 14,
+      "category": "목대",
+      "name": "밑장휠라",
+      "w": 150.0,
+      "d": 20.0,
+      "h": 850.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 15,
+      "category": "목대",
+      "name": "찬넬밑장",
+      "w": 280.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 16,
+      "category": "목대",
+      "name": "찬넬렌지밑장",
+      "w": 601.0,
+      "d": 570.0,
+      "h": 550.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 17,
+      "category": "목대",
+      "name": "찬넬3단서랍밑장",
+      "w": 400.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 18,
+      "category": "목대",
+      "name": "찬넬씽크밑장",
+      "w": 800.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 19,
+      "category": "목대",
+      "name": "밑장판넬",
+      "w": 650.0,
+      "d": 20.0,
+      "h": 850.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 20,
+      "category": "목대",
+      "name": "장식판",
+      "w": 60.0,
+      "d": 20.0,
+      "h": 2400.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 21,
+      "category": "목대",
+      "name": "걸레받이",
+      "w": 150.0,
+      "d": 20.0,
+      "h": 2400.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 22,
+      "category": "상품",
+      "name": "행거레일",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 23,
+      "category": "상품",
+      "name": "2단컵걸이선반",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 24,
+      "category": "상품",
+      "name": "씽크볼(630용) 수세미망 포함",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 25,
+      "category": "상품",
+      "name": "후크배수구",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 26,
+      "category": "상품",
+      "name": "칼꽂이",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 27,
+      "category": "상품",
+      "name": "BMC상판",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    }
+  ],
+  "all_rows": [
+    {
+      "row_index": 7,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 860.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 8,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 260.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 9,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 10,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 11,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 380.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 12,
+      "category": "목대",
+      "name": "일반벽장",
+      "w": 800.0,
+      "d": 290.0,
+      "h": 800.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 13,
+      "category": "목대",
+      "name": "벽장판넬",
+      "w": 310.0,
+      "d": 20.0,
+      "h": 860.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 14,
+      "category": "목대",
+      "name": "밑장휠라",
+      "w": 150.0,
+      "d": 20.0,
+      "h": 850.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 15,
+      "category": "목대",
+      "name": "찬넬밑장",
+      "w": 280.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 16,
+      "category": "목대",
+      "name": "찬넬렌지밑장",
+      "w": 601.0,
+      "d": 570.0,
+      "h": 550.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 17,
+      "category": "목대",
+      "name": "찬넬3단서랍밑장",
+      "w": 400.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 18,
+      "category": "목대",
+      "name": "찬넬씽크밑장",
+      "w": 800.0,
+      "d": 570.0,
+      "h": 700.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 19,
+      "category": "목대",
+      "name": "밑장판넬",
+      "w": 650.0,
+      "d": 20.0,
+      "h": 850.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 20,
+      "category": "목대",
+      "name": "장식판",
+      "w": 60.0,
+      "d": 20.0,
+      "h": 2400.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 21,
+      "category": "목대",
+      "name": "걸레받이",
+      "w": 150.0,
+      "d": 20.0,
+      "h": 2400.0,
+      "type": "26A"
+    },
+    {
+      "row_index": 22,
+      "category": "상품",
+      "name": "행거레일",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 23,
+      "category": "상품",
+      "name": "2단컵걸이선반",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 24,
+      "category": "상품",
+      "name": "씽크볼(630용) 수세미망 포함",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 25,
+      "category": "상품",
+      "name": "후크배수구",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 26,
+      "category": "상품",
+      "name": "칼꽂이",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    },
+    {
+      "row_index": 27,
+      "category": "상품",
+      "name": "BMC상판",
+      "w": null,
+      "d": null,
+      "h": null,
+      "type": "26A"
+    }
+  ]
+}

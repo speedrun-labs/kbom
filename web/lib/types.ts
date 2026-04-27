@@ -51,6 +51,8 @@ export interface VariantDetail {
   validations: Validation[];
   rules_fired: string[];
   is_approved: boolean;
+  cost_per_unit: number | null;
+  cost_total: number | null;
 }
 
 export interface ProjectSummary {

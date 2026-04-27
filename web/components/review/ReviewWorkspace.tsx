@@ -32,7 +32,6 @@ export function ReviewWorkspace({
   const inspectorOpen = useUIStore((s) => s.inspectorOpen);
   const setSelectedRow = useUIStore((s) => s.setSelectedRow);
 
-  // Reset selection when variant changes
   useEffect(() => {
     setSelectedRow(null);
   }, [activeVariantCode, setSelectedRow]);
@@ -59,6 +58,7 @@ export function ReviewWorkspace({
               projectId={project.id}
               pageNumber={variant.page_number}
               variantLabel={variant.label}
+              rows={variant.rows}
             />
           )}
         </div>
@@ -93,6 +93,8 @@ export function ReviewWorkspace({
           validations={variant.validations}
           units={variant.units}
           isApproved={variant.is_approved}
+          costPerUnit={variant.cost_per_unit}
+          costTotal={variant.cost_total}
         />
       )}
     </div>

@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "@/lib/api";
 import { useUIStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { CabinetRow } from "@/lib/types";
 import { ConfidencePill } from "./ConfidencePill";
+import { EditableCell } from "./EditableCell";
 
 interface Props {
   projectId: string;
@@ -25,17 +24,23 @@ export function BomGrid({ projectId, variantCode, rows }: Props) {
   // Keyboard navigation: J/K for next/prev, Esc to deselect
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       const target = e.target as HTMLElement;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA")
+        return;
 
       if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        const next = selectedRowIndex === null ? 0 : Math.min(rows.length - 1, selectedRowIndex + 1);
+        const next =
+          selectedRowIndex === null
+            ? 0
+            : Math.min(rows.length - 1, selectedRowIndex + 1);
         setSelectedRow(next);
       } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        const next = selectedRowIndex === null ? rows.length - 1 : Math.max(0, selectedRowIndex - 1);
+        const next =
+          selectedRowIndex === null
+            ? rows.length - 1
+            : Math.max(0, selectedRowIndex - 1);
         setSelectedRow(next);
       } else if (e.key === "Escape") {
         setSelectedRow(null);
@@ -70,13 +75,13 @@ export function BomGrid({ projectId, variantCode, rows }: Props) {
             <kbd className="ml-0.5 font-mono px-1 py-0.5 rounded bg-white border border-[var(--color-border)] text-[10px]">
               K
             </kbd>{" "}
-            navigate
+            navigate · click W/D/H to edit
           </span>
         </div>
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[36px_56px_44px_60px_1fr_140px_44px] gap-2 px-3 h-7 items-center border-b border-[var(--color-border-soft)] text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-subtle)]">
+      <div className="grid grid-cols-[36px_56px_44px_60px_1fr_180px_44px] gap-2 px-3 h-7 items-center border-b border-[var(--color-border-soft)] text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-subtle)]">
         <div>#</div>
         <div>conf</div>
         <div>cat</div>
@@ -122,6 +127,7 @@ function Row({
   projectId: string;
   variantCode: string;
 }) {
+  const isDimensional = row.width_mm !== null;
   return (
     <div
       data-row-index={row.index}
@@ -129,7 +135,7 @@ function Row({
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       className={cn(
-        "grid grid-cols-[36px_56px_44px_60px_1fr_140px_44px] gap-2 px-3 h-9 items-center text-[13px] cursor-pointer border-b border-[var(--color-border-soft)] transition-colors",
+        "grid grid-cols-[36px_56px_44px_60px_1fr_180px_44px] gap-2 px-3 h-9 items-center text-[13px] cursor-pointer border-b border-[var(--color-border-soft)] transition-colors",
         isSelected
           ? "bg-[var(--color-brand-50)]"
           : "hover:bg-[var(--color-surface-2)]"
@@ -165,10 +171,32 @@ function Row({
       <div className="font-medium truncate text-[var(--color-text)]">
         {row.name}
       </div>
-      <div className="text-right font-mono text-[12px] text-[var(--color-text-muted)] tabular-nums">
-        {row.width_mm !== null ? (
+      <div className="text-right text-[12px] text-[var(--color-text-muted)] flex items-center justify-end gap-1">
+        {isDimensional ? (
           <>
-            {row.width_mm} × {row.depth_mm ?? 0} × {row.height_mm ?? 0}
+            <EditableCell
+              projectId={projectId}
+              variantCode={variantCode}
+              rowIndex={row.index}
+              field="width_mm"
+              value={row.width_mm}
+            />
+            <span className="text-[var(--color-text-subtle)]">×</span>
+            <EditableCell
+              projectId={projectId}
+              variantCode={variantCode}
+              rowIndex={row.index}
+              field="depth_mm"
+              value={row.depth_mm}
+            />
+            <span className="text-[var(--color-text-subtle)]">×</span>
+            <EditableCell
+              projectId={projectId}
+              variantCode={variantCode}
+              rowIndex={row.index}
+              field="height_mm"
+              value={row.height_mm}
+            />
           </>
         ) : (
           <span className="text-[var(--color-text-subtle)]">—</span>

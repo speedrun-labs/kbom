@@ -1,12 +1,15 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, AlertCircle } from "lucide-react";
+import { Check, AlertCircle, Download } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { formatKRW } from "@/lib/utils";
 import type { Validation } from "@/lib/types";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8765";
 
 interface Props {
   projectId: string;
@@ -14,6 +17,8 @@ interface Props {
   validations: Validation[];
   units: number;
   isApproved: boolean;
+  costPerUnit: number | null;
+  costTotal: number | null;
 }
 
 export function ValidationsBar({
@@ -22,6 +27,8 @@ export function ValidationsBar({
   validations,
   units,
   isApproved,
+  costPerUnit,
+  costTotal,
 }: Props) {
   const passed = validations.filter((v) => v.passed).length;
   const total = validations.length;
@@ -38,10 +45,6 @@ export function ValidationsBar({
       });
     },
   });
-
-  // Mock cost (in real app from server)
-  const costPerUnit = 1_847_200;
-  const total_cost = costPerUnit * units;
 
   return (
     <div className="h-12 flex items-center justify-between px-4 border-t border-[var(--color-border)] bg-white">
@@ -62,17 +65,32 @@ export function ValidationsBar({
             {passed}/{total} validations
           </span>
         </div>
-        <span className="text-[var(--color-text-subtle)]">·</span>
-        <span className="text-[var(--color-text-muted)]">
-          Est. <span className="font-medium text-[var(--color-text)]">{formatKRW(total_cost)}</span>{" "}
-          ({units} × {formatKRW(costPerUnit)})
-        </span>
+        {costPerUnit !== null && costTotal !== null && (
+          <>
+            <span className="text-[var(--color-text-subtle)]">·</span>
+            <span className="text-[var(--color-text-muted)]">
+              Est.{" "}
+              <span className="font-medium text-[var(--color-text)]">
+                {formatKRW(costTotal)}
+              </span>{" "}
+              <span className="text-[var(--color-text-subtle)]">
+                ({units} × {formatKRW(costPerUnit)})
+              </span>
+            </span>
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="md">
-          Open in Excel
-        </Button>
+        <a
+          href={`${API_BASE}/api/projects/${projectId}/download.xlsx`}
+          download
+        >
+          <Button variant="secondary" size="md">
+            <Download size={12} />
+            Download Excel
+          </Button>
+        </a>
         <Button
           variant={isApproved ? "secondary" : "primary"}
           size="md"

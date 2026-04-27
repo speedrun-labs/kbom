@@ -1,0 +1,58 @@
+{
+  "25d01ea4": {
+    "name": "화성태안3 A2BL",
+    "developer": "LH",
+    "blueprint_pdf_path": "/Users/d/Downloads/붙임3-2. 주방가구 상세도(화성태안3 A-2BL)-2.pdf",
+    "created_at": "2026-04-27T20:55:11.061195",
+    "status": "Awaiting review",
+    "units_per_variant": {
+      "26A": 120,
+      "26A1": 80,
+      "37A": 60,
+      "37A1": 40,
+      "37B": 50,
+      "37B1": 30,
+      "46A": 20
+    },
+    "approved": [],
+    "variants_meta": [
+      [
+        2,
+        "26A",
+        "26㎡ A형"
+      ],
+      [
+        4,
+        "26A1",
+        "26㎡ A1형"
+      ],
+      [
+        7,
+        "37A",
+        "37㎡ A형"
+      ],
+      [
+        9,
+        "37A1",
+        "37㎡ A1형 (주거약자형)"
+      ],
+      [
+        12,
+        "37B",
+        "37㎡ B형"
+      ],
+      [
+        14,
+        "37B1",
+        "37㎡ B1형 (주거약자형)"
+      ],
+      [
+        17,
+        "46A",
+        "46㎡ A형"
+      ]
+    ],
+    "row_overrides": {},
+    "populated_xlsx": null
+  }
+}

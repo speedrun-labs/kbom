@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,6 +9,7 @@ import {
   CircleDot,
   ArrowUpRight,
   Sparkles,
+  Plus,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -15,6 +17,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { LeftRail } from "@/components/layout/LeftRail";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
 import type { ProjectSummary } from "@/lib/types";
 
 export default function HomePage() {
@@ -28,6 +31,8 @@ export default function HomePage() {
     mutationFn: api.createSample,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
+
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg)]">
@@ -54,7 +59,13 @@ export default function HomePage() {
                   <Sparkles size={14} />
                   {createSample.isPending ? "Creating…" : "Use sample"}
                 </Button>
-                <Button variant="primary">+ New project</Button>
+                <Button
+                  variant="primary"
+                  onClick={() => setNewProjectOpen(true)}
+                >
+                  <Plus size={14} />
+                  New project
+                </Button>
               </div>
             </div>
 
@@ -65,7 +76,11 @@ export default function HomePage() {
             )}
 
             {projects.data?.length === 0 && (
-              <EmptyState onCreate={() => createSample.mutate()} loading={createSample.isPending} />
+              <EmptyState
+                onSample={() => createSample.mutate()}
+                loading={createSample.isPending}
+                onUpload={() => setNewProjectOpen(true)}
+              />
             )}
 
             {(projects.data?.length ?? 0) > 0 && (
@@ -78,6 +93,11 @@ export default function HomePage() {
           </div>
         </main>
       </div>
+
+      <NewProjectDialog
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+      />
     </div>
   );
 }
@@ -137,11 +157,13 @@ function statusMeta(status: string) {
 }
 
 function EmptyState({
-  onCreate,
+  onSample,
   loading,
+  onUpload,
 }: {
-  onCreate: () => void;
+  onSample: () => void;
   loading: boolean;
+  onUpload: () => void;
 }) {
   return (
     <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-white p-12 text-center">
@@ -153,10 +175,16 @@ function EmptyState({
         Upload your first blueprint, or kick the tires with the bundled NEFS
         sample (<code className="font-mono text-[12px]">화성태안3 A2BL</code>).
       </p>
-      <Button variant="primary" onClick={onCreate} disabled={loading}>
-        <Sparkles size={14} />
-        {loading ? "Creating sample…" : "Try with sample"}
-      </Button>
+      <div className="flex items-center justify-center gap-2">
+        <Button variant="primary" onClick={onSample} disabled={loading}>
+          <Sparkles size={14} />
+          {loading ? "Creating sample…" : "Try with sample"}
+        </Button>
+        <Button variant="secondary" onClick={onUpload}>
+          <Plus size={14} />
+          Upload PDF
+        </Button>
+      </div>
     </div>
   );
 }

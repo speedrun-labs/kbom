@@ -27,7 +27,17 @@ export function TopBar({ projectName }: { projectName?: string }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <button className="flex items-center gap-2 px-2.5 h-7 rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-slate-300 transition-colors">
+        <button
+          onClick={() => {
+            const event = new KeyboardEvent("keydown", {
+              key: "k",
+              metaKey: true,
+              bubbles: true,
+            });
+            document.dispatchEvent(event);
+          }}
+          className="flex items-center gap-2 px-2.5 h-7 rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-slate-300 transition-colors"
+        >
           <Search size={12} />
           <span>Search</span>
           <kbd className="ml-2 px-1 py-0.5 rounded text-[10px] font-mono bg-white border border-[var(--color-border)]">

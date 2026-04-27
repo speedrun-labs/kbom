@@ -1,25 +1,32 @@
 """FastAPI service — wraps the kbom pipeline as a REST API for the Next.js frontend.
 
 Endpoints:
-  GET  /api/projects                          List all projects
-  POST /api/projects                          Create project (upload PDF, set name, units)
+  GET  /api/health
+  GET  /api/projects                          List projects
+  POST /api/projects/sample                   Demo: create from bundled sample
+  POST /api/projects                          Upload PDF, create project
   GET  /api/projects/{id}                     Project detail
-  GET  /api/projects/{id}/variants/{code}     Variant detail (rows + validations)
-  POST /api/projects/{id}/variants/{code}/approve   Approve a variant
-  POST /api/projects/{id}/variants/{code}/rows/{i}  Update a single row (inline edit)
-  GET  /api/projects/{id}/blueprint/{page}    Render PDF page as PNG
-  GET  /api/cells/{project_id}/{sheet}/{coord}  Cell inspector data (formula + provenance)
+  DELETE /api/projects/{id}                   Delete project
+  GET  /api/projects/{id}/variants/{code}     Variant detail
+  POST /api/projects/{id}/variants/{code}/approve
+  PATCH /api/projects/{id}/variants/{code}/rows/{i}  Inline edit
+  POST /api/projects/{id}/variants/{code}/recalc     Trigger Excel recalc
+  GET  /api/projects/{id}/blueprint/{page}.png       Render PDF page
+  GET  /api/projects/{id}/download.xlsx              Download populated workbook
+  GET  /api/rules                              Rule library
 
-Storage: in-memory dict for prototype. Postgres comes in Stage 2.
+Persistence: JSON file at ./.kbom-state.json (state survives server restart).
 """
 from __future__ import annotations
 
 import io
+import json
+import os
 import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 # Make kbom importable
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,37 +35,134 @@ if str(ROOT) not in sys.path:
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from kbom.geometry import pdf_parser
-from kbom.models import RowSource
+from kbom.models import Category, RowSource
 from kbom.pipeline import run_extraction
 from kbom.rules.engine import list_rules
 
-app = FastAPI(title="KBOM API", version="0.1.0")
+app = FastAPI(title="KBOM API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 # -----------------------------------------------------------------------------
-# In-memory storage (Stage 1 prototype only)
+# Storage layout
 # -----------------------------------------------------------------------------
-PROJECTS: dict[str, dict[str, Any]] = {}
+STATE_FILE = ROOT / ".kbom-state.json"
+RUNS_DIR = ROOT / ".runs"
+UPLOADS_DIR = ROOT / ".uploads"
+RUNS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(exist_ok=True)
+
 SAMPLE_PDF = Path("/Users/d/Downloads/붙임3-2. 주방가구 상세도(화성태안3 A-2BL)-2.pdf")
 SAMPLE_TEMPLATE = Path("/Users/d/Downloads/1. LH 화성태안3 A2BL-26A.xls")
-UPLOAD_DIR = Path("/tmp/kbom_uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+# In-memory cache of projects (loaded from / persisted to STATE_FILE)
+PROJECTS: dict[str, dict[str, Any]] = {}
+# Extraction results live in RAM only — they include non-serializable objects.
+# When the server restarts, we re-run extraction on demand.
+EXTRACTION_CACHE: dict[str, Any] = {}
+
+
+def _save_state() -> None:
+    """Persist projects metadata (NOT extraction results) to disk."""
+    serializable = {}
+    for pid, p in PROJECTS.items():
+        serializable[pid] = {
+            "name": p["name"],
+            "developer": p["developer"],
+            "blueprint_pdf_path": p["blueprint_pdf_path"],
+            "created_at": p["created_at"],
+            "status": p["status"],
+            "units_per_variant": p["units_per_variant"],
+            "approved": list(p["approved"]),
+            "variants_meta": [
+                [page, code, label] for page, code, label in p["variants_meta"]
+            ],
+            "row_overrides": p.get("row_overrides", {}),
+            "populated_xlsx": p.get("populated_xlsx"),
+        }
+    STATE_FILE.write_text(json.dumps(serializable, ensure_ascii=False, indent=2))
+
+
+def _load_state() -> None:
+    """Restore projects from disk on startup."""
+    if not STATE_FILE.exists():
+        return
+    try:
+        data = json.loads(STATE_FILE.read_text())
+    except Exception:
+        return
+    for pid, p in data.items():
+        PROJECTS[pid] = {
+            "name": p["name"],
+            "developer": p["developer"],
+            "blueprint_pdf_path": p["blueprint_pdf_path"],
+            "created_at": p["created_at"],
+            "status": p["status"],
+            "units_per_variant": p["units_per_variant"],
+            "approved": set(p.get("approved", [])),
+            "variants_meta": [tuple(v) for v in p.get("variants_meta", [])],
+            "row_overrides": p.get("row_overrides", {}),
+            "populated_xlsx": p.get("populated_xlsx"),
+        }
+
+
+def _get_extraction(pid: str):
+    """Get the extraction result for a project, running it on demand if needed."""
+    if pid in EXTRACTION_CACHE:
+        return EXTRACTION_CACHE[pid]
+    if pid not in PROJECTS:
+        raise HTTPException(status_code=404, detail="Project not found")
+    p = PROJECTS[pid]
+    pdf_path = Path(p["blueprint_pdf_path"])
+    if not pdf_path.exists():
+        raise HTTPException(
+            status_code=410, detail=f"Blueprint PDF missing: {pdf_path}"
+        )
+    result = run_extraction(
+        pdf_path=pdf_path,
+        template_path=SAMPLE_TEMPLATE,
+        project_name=p["name"],
+        units_per_variant=p["units_per_variant"],
+        output_dir=RUNS_DIR / pid,
+        skip_recalc=True,
+    )
+    # Apply any saved row overrides
+    overrides = p.get("row_overrides", {})
+    for v in result.project.variants:
+        var_overrides = overrides.get(v.type_code, {})
+        for idx_str, fields in var_overrides.items():
+            i = int(idx_str)
+            if 0 <= i < len(v.rows):
+                row = v.rows[i]
+                for k, val in fields.items():
+                    if hasattr(row, k):
+                        setattr(row, k, val)
+                row.source = RowSource.HUMAN
+                row.confidence = 1.0
+    EXTRACTION_CACHE[pid] = result
+    p["populated_xlsx"] = (
+        str(result.populated_xlsx) if result.populated_xlsx else None
+    )
+    return result
+
+
+_load_state()
 
 
 # -----------------------------------------------------------------------------
-# Pydantic schemas (response shapes)
+# Pydantic schemas
 # -----------------------------------------------------------------------------
 class ProjectSummary(BaseModel):
     id: str
@@ -90,8 +194,8 @@ class RuleCitation(BaseModel):
     rule_id: str
     description: str
     document: str
-    page: int | None = None
-    section_code: str | None = None
+    page: Optional[int] = None
+    section_code: Optional[str] = None
 
 
 class CabinetRowOut(BaseModel):
@@ -99,13 +203,13 @@ class CabinetRowOut(BaseModel):
     category: str
     code: str
     name: str
-    width_mm: int | None = None
-    depth_mm: int | None = None
-    height_mm: int | None = None
+    width_mm: Optional[int] = None
+    depth_mm: Optional[int] = None
+    height_mm: Optional[int] = None
     type_label: str
     source: str
     confidence: float
-    rule_citation: RuleCitation | None = None
+    rule_citation: Optional[RuleCitation] = None
 
 
 class ValidationOut(BaseModel):
@@ -124,6 +228,8 @@ class VariantDetail(BaseModel):
     validations: list[ValidationOut]
     rules_fired: list[str]
     is_approved: bool
+    cost_per_unit: Optional[int] = None
+    cost_total: Optional[int] = None
 
 
 # -----------------------------------------------------------------------------
@@ -172,17 +278,27 @@ def _to_summary(project_id: str, p: dict) -> ProjectSummary:
 # -----------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0", "projects": len(PROJECTS)}
 
 
 @app.get("/api/projects", response_model=list[ProjectSummary])
 def list_projects():
-    return [_to_summary(pid, p) for pid, p in PROJECTS.items()]
+    items = sorted(
+        PROJECTS.items(),
+        key=lambda kv: kv[1]["created_at"],
+        reverse=True,
+    )
+    return [_to_summary(pid, p) for pid, p in items]
 
 
 @app.post("/api/projects/sample", response_model=ProjectDetail)
 def create_sample_project():
-    """Demo helper: create a project from the bundled sample without file upload."""
+    """Create a project from the bundled sample (no upload required)."""
+    if not SAMPLE_PDF.exists():
+        raise HTTPException(
+            status_code=410,
+            detail=f"Sample PDF missing at {SAMPLE_PDF}. Place the supplied PDF there or use POST /api/projects.",
+        )
     return _create_project(
         pdf_path=SAMPLE_PDF,
         name="화성태안3 A2BL",
@@ -198,15 +314,15 @@ def create_sample_project():
 async def create_project(
     name: str = Form(...),
     developer: str = Form("LH"),
-    pdf: UploadFile | None = File(None),
+    pdf: UploadFile = File(...),
 ):
     """Create a project from an uploaded PDF."""
-    if pdf is None:
-        raise HTTPException(status_code=400, detail="PDF file is required")
-    pdf_path = UPLOAD_DIR / f"{uuid.uuid4()}_{pdf.filename}"
+    pdf_path = UPLOADS_DIR / f"{uuid.uuid4().hex[:8]}_{pdf.filename}"
     with open(pdf_path, "wb") as f:
         f.write(await pdf.read())
-    return _create_project(pdf_path=pdf_path, name=name, units_per_variant={}, developer=developer)
+    return _create_project(
+        pdf_path=pdf_path, name=name, units_per_variant={}, developer=developer
+    )
 
 
 def _create_project(
@@ -215,26 +331,18 @@ def _create_project(
     units_per_variant: dict[str, int],
     developer: str,
 ) -> ProjectDetail:
-    """Internal: run the extraction pipeline + store the result."""
-    pid = str(uuid.uuid4())[:8]
+    pid = uuid.uuid4().hex[:8]
 
-    # Auto-detect variants
     variants_meta = pdf_parser.identify_variants(pdf_path)
+    if not variants_meta:
+        raise HTTPException(
+            status_code=400,
+            detail="No unit-type variants detected in the PDF. Check format.",
+        )
 
-    # Default unit counts if not provided
     if not units_per_variant:
         units_per_variant = {code: 50 for _, code, _ in variants_meta}
 
-    # Run pipeline
-    result = run_extraction(
-        pdf_path=pdf_path,
-        template_path=SAMPLE_TEMPLATE,
-        project_name=name,
-        units_per_variant=units_per_variant,
-        skip_recalc=True,
-    )
-
-    # Store
     PROJECTS[pid] = {
         "name": name,
         "developer": developer,
@@ -244,9 +352,13 @@ def _create_project(
         "units_per_variant": units_per_variant,
         "approved": set(),
         "variants_meta": variants_meta,
-        "extraction_result": result,
+        "row_overrides": {},
+        "populated_xlsx": None,
     }
+    _save_state()
 
+    # Trigger extraction (fills cache); 200ms for sample
+    _get_extraction(pid)
     return _project_detail(pid)
 
 
@@ -255,8 +367,9 @@ def _project_detail(pid: str) -> ProjectDetail:
         raise HTTPException(status_code=404, detail="Project not found")
     p = PROJECTS[pid]
     summary = _to_summary(pid, p)
+    extraction = _get_extraction(pid)
     variants = []
-    for v in p["extraction_result"].project.variants:
+    for v in extraction.project.variants:
         variants.append(VariantSummary(
             code=v.type_code,
             label=v.variant_label,
@@ -278,18 +391,30 @@ def get_project(pid: str):
     return _project_detail(pid)
 
 
+@app.delete("/api/projects/{pid}")
+def delete_project(pid: str):
+    if pid not in PROJECTS:
+        raise HTTPException(status_code=404, detail="Project not found")
+    PROJECTS.pop(pid)
+    EXTRACTION_CACHE.pop(pid, None)
+    _save_state()
+    return {"deleted": pid}
+
+
 @app.get("/api/projects/{pid}/variants/{code}", response_model=VariantDetail)
 def get_variant(pid: str, code: str):
     if pid not in PROJECTS:
         raise HTTPException(status_code=404, detail="Project not found")
     p = PROJECTS[pid]
-    for v in p["extraction_result"].project.variants:
+    extraction = _get_extraction(pid)
+    for v in extraction.project.variants:
         if v.type_code == code:
             rows_out = [_row_to_out(i, r) for i, r in enumerate(v.rows)]
             rules_fired = sorted({
                 r.rule_citation.rule_id for r in v.rows
                 if r.rule_citation
             })
+            cost_per_unit, cost_total = _compute_cost(rows_out, p["units_per_variant"].get(code, 1))
             return VariantDetail(
                 code=v.type_code,
                 label=v.variant_label,
@@ -304,8 +429,37 @@ def get_variant(pid: str, code: str):
                 ) for vr in v.validations],
                 rules_fired=rules_fired,
                 is_approved=v.type_code in p["approved"],
+                cost_per_unit=cost_per_unit,
+                cost_total=cost_total,
             )
     raise HTTPException(status_code=404, detail=f"Variant {code} not found")
+
+
+def _compute_cost(rows: list[CabinetRowOut], units: int) -> tuple[int, int]:
+    """Heuristic per-unit cost — sums approximate prices per cabinet code/product.
+
+    For a real production pipeline we'd run the LibreOffice recalc and read the
+    real ₩ from 일위대가표 — but that's a 5-30s operation. For interactive UI we
+    use this fast estimate.
+    """
+    # Rough KRW per 1000mm² for cabinets, plus product flat rates.
+    per_unit = 0
+    for r in rows:
+        if r.category == "목대" and r.width_mm and r.depth_mm and r.height_mm:
+            area = (r.width_mm * r.height_mm) / 1_000_000  # m²
+            per_unit += int(area * 250_000)  # ~₩250k per m² of frontage
+        elif r.category == "상품":
+            # Rough product prices
+            if "씽크볼" in r.name: per_unit += 32000
+            elif "BMC" in r.name: per_unit += 172920
+            elif "후크배수구" in r.name: per_unit += 14000
+            elif "행거레일" in r.name: per_unit += 7500
+            elif "2단컵걸이" in r.name: per_unit += 14000
+            elif "칼꽂이" in r.name: per_unit += 2200
+            else: per_unit += 5000
+    # Add labor + overhead (~30% of materials)
+    per_unit = int(per_unit * 1.3)
+    return per_unit, per_unit * units
 
 
 class ApproveBody(BaseModel):
@@ -327,47 +481,50 @@ def approve_variant(pid: str, code: str, body: ApproveBody):
         p["status"] = "In review"
     else:
         p["status"] = "Awaiting review"
+    _save_state()
     return {"approved": body.approved, "project_status": p["status"]}
 
 
 class RowUpdate(BaseModel):
-    width_mm: int | None = None
-    depth_mm: int | None = None
-    height_mm: int | None = None
-    code: str | None = None
-    name: str | None = None
+    width_mm: Optional[int] = None
+    depth_mm: Optional[int] = None
+    height_mm: Optional[int] = None
+    code: Optional[str] = None
+    name: Optional[str] = None
 
 
 @app.patch("/api/projects/{pid}/variants/{code}/rows/{i}", response_model=CabinetRowOut)
 def update_row(pid: str, code: str, i: int, update: RowUpdate):
-    """Inline edit a row. Marks source=HUMAN."""
+    """Inline edit a row. Marks source=HUMAN; persists the override."""
     if pid not in PROJECTS:
         raise HTTPException(status_code=404, detail="Project not found")
     p = PROJECTS[pid]
-    for v in p["extraction_result"].project.variants:
+    extraction = _get_extraction(pid)
+    for v in extraction.project.variants:
         if v.type_code == code:
             if i < 0 or i >= len(v.rows):
                 raise HTTPException(status_code=404, detail="Row not found")
             row = v.rows[i]
-            if update.width_mm is not None:
-                row.width_mm = update.width_mm
-            if update.depth_mm is not None:
-                row.depth_mm = update.depth_mm
-            if update.height_mm is not None:
-                row.height_mm = update.height_mm
-            if update.code is not None:
-                row.code = update.code
-            if update.name is not None:
-                row.name = update.name
+            changes: dict[str, Any] = {}
+            for field in ("width_mm", "depth_mm", "height_mm", "code", "name"):
+                val = getattr(update, field)
+                if val is not None:
+                    setattr(row, field, val)
+                    changes[field] = val
             row.source = RowSource.HUMAN
             row.confidence = 1.0
+            # Persist the override
+            overrides = p.setdefault("row_overrides", {})
+            var_overrides = overrides.setdefault(code, {})
+            existing = var_overrides.setdefault(str(i), {})
+            existing.update(changes)
+            _save_state()
             return _row_to_out(i, row)
     raise HTTPException(status_code=404, detail=f"Variant {code} not found")
 
 
 @app.get("/api/projects/{pid}/blueprint/{page}.png")
 def get_blueprint_page(pid: str, page: int, dpi: int = 150):
-    """Render a PDF page as PNG for the blueprint canvas."""
     if pid not in PROJECTS:
         raise HTTPException(status_code=404, detail="Project not found")
     pdf_path = PROJECTS[pid]["blueprint_pdf_path"]
@@ -377,7 +534,26 @@ def get_blueprint_page(pid: str, page: int, dpi: int = 150):
     return Response(content=buf.getvalue(), media_type="image/png")
 
 
+@app.get("/api/projects/{pid}/download.xlsx")
+def download_workbook(pid: str):
+    """Download the populated Excel workbook for a project."""
+    if pid not in PROJECTS:
+        raise HTTPException(status_code=404, detail="Project not found")
+    p = PROJECTS[pid]
+    populated = p.get("populated_xlsx")
+    if not populated or not Path(populated).exists():
+        # Trigger extraction to produce it
+        _get_extraction(pid)
+        populated = p.get("populated_xlsx")
+    if not populated:
+        raise HTTPException(status_code=500, detail="Workbook not yet populated")
+    return FileResponse(
+        populated,
+        filename=f"{p['name']}.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 @app.get("/api/rules")
 def get_rules():
-    """List the rule library (for reference / cell inspector)."""
     return list_rules()

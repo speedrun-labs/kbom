@@ -59,3 +59,9 @@ web/next-env.d.ts
 __pycache__/
 .pytest_cache/
 
+# Demo runtime artifacts
+.kbom-state.json
+.logs/
+.runs/
+.uploads/
+

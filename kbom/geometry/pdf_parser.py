@@ -22,7 +22,7 @@ import fitz  # pymupdf
 import pdfplumber
 from PIL import Image
 
-from kbom.models import GeometryEvidence
+from kbom.models import CabinetSegment, GeometryEvidence
 
 
 # -----------------------------------------------------------------------------
@@ -88,41 +88,181 @@ _DIM_RE = re.compile(r"^(\d{2,4}(?:,\d{3})?)$")
 _BIG_DIM_RE = re.compile(r"^[1-5],\d{3}$")  # "2,120" total-run dimension
 
 
-def extract_geometry(pdf_path: str | Path, page_num: int) -> GeometryEvidence:
+def extract_geometry(
+    pdf_path: str | Path, page_num: int, render_dpi: int = 150
+) -> GeometryEvidence:
     """Read all extractable evidence from one page.
 
-    Populates dimension ladders, finish spec, title-block text. Does NOT do
-    AI-based symbol classification — that's the vision stage's job.
+    Populates dimension ladders, finish spec, title-block text, and pixel-accurate
+    cabinet-segment positions for SVG overlay rendering. Does NOT do AI-based
+    symbol classification — that's the vision stage's job.
     """
-    evidence = GeometryEvidence()
+    evidence = GeometryEvidence(render_dpi=render_dpi)
 
     with pdfplumber.open(str(pdf_path)) as pdf:
         page = pdf.pages[page_num - 1]
+        # Default tolerance for general text extraction
         words = page.extract_words() or []
         evidence.raw_text_strings = [w["text"] for w in words]
         evidence.title_block_text = " ".join(evidence.raw_text_strings)
 
-        # Find candidate dimension labels — small integers
-        dims_with_pos = []
-        for w in words:
+        # Image dimensions at the target DPI (PDF page is in points, 1pt = 1/72 inch)
+        scale = render_dpi / 72.0
+        evidence.image_width_px = int(round(page.width * scale))
+        evidence.image_height_px = int(round(page.height * scale))
+
+        # Stricter tolerance for dimension labels — LH dimension labels often sit
+        # very close to each other (e.g. "20" + "280" with <1pt gap), and
+        # the default tolerance (3pt) merges them into "20280".
+        dim_words = page.extract_words(x_tolerance=0.5) or []
+
+        # Find candidate dimension labels — small integers + total-run "2,120"-style
+        dims_with_pos: list[dict] = []
+        for w in dim_words:
             text = w["text"].strip()
             if _DIM_RE.match(text) or _BIG_DIM_RE.match(text):
                 try:
                     val = int(text.replace(",", ""))
                     if 10 <= val <= 5000:
-                        dims_with_pos.append((float(w["x0"]), float(w["top"]), val))
+                        dims_with_pos.append({
+                            "val": val,
+                            "x0": float(w["x0"]),
+                            "x1": float(w["x1"]),
+                            "y_top": float(w["top"]),
+                            "y_bot": float(w["bottom"]),
+                        })
                 except ValueError:
                     pass
 
-        # Cluster by Y-coordinate to find horizontal dimension ladders.
-        # The plan-view ladder and elevation ladder will be on different y-rows.
-        evidence.plan_dimension_ladder, evidence.elevation_dimension_ladder = \
-            _identify_two_ladders(dims_with_pos)
+        # Plain integer values (for the existing ladder-extraction code)
+        dims_xyv = [(d["x0"], d["y_top"], d["val"]) for d in dims_with_pos]
 
-        # Read the finish-spec table (right side of page, key:value pairs)
+        evidence.plan_dimension_ladder, evidence.elevation_dimension_ladder = \
+            _identify_two_ladders(dims_xyv)
+
+        # Real pixel-accurate segment positions for the SVG overlay
+        evidence.segments = _extract_segments_pixels(dims_with_pos, scale)
+
+        # Finish-spec table (right side of page)
         evidence.finish_spec = _extract_finish_spec(words)
 
     return evidence
+
+
+def _extract_segments_pixels(
+    dims_with_pos: list[dict], scale: float
+) -> list[CabinetSegment]:
+    """Convert dimension labels into pixel-accurate cabinet segments.
+
+    Logic:
+    1. Cluster labels into horizontal y-bands (5pt tolerance).
+    2. Find a "total-run" label — a 4-digit value like 2,120 or 2,600 that
+       sits alone or near-alone in its band (the dimension-line label).
+    3. Find the segment-ladder band immediately below it whose values SUM
+       to approximately the total. That's the plan view's dimension row.
+    4. Map each segment label to image pixels:
+         - X: linear interpolation between leftmost-label-center and
+           rightmost-label-center, with half-segment adjustment for the
+           segments outside the labels.
+         - Y: cabinet outline sits ~50pt below the labels, ~70pt tall
+           (typical for LH detail drawings).
+    """
+    if not dims_with_pos:
+        return []
+
+    # Cluster by y-band
+    bands: dict[int, list[dict]] = {}
+    for d in dims_with_pos:
+        key = int(d["y_top"] / 5) * 5
+        bands.setdefault(key, []).append(d)
+
+    sorted_bands = sorted(bands.items())
+
+    # Find a "total-run" candidate: a single (or near-isolated) label with
+    # value >=1500, NOT in a multi-label band (which would be a segment ladder).
+    total_candidates = []
+    for y, members in sorted_bands:
+        big_labels = [d for d in members if d["val"] >= 1500]
+        if big_labels and len(members) <= 2:
+            # Looks like a "2,120" total-run label sitting alone above its segments
+            for d in big_labels:
+                total_candidates.append((y, d))
+
+    if not total_candidates:
+        return []
+
+    # For each candidate, find the segment-ladder below it whose sum matches
+    chosen_ladder: list[dict] | None = None
+    for total_y, total_label in total_candidates:
+        # Look for segment ladders below (within 30pt) whose sum ≈ total
+        for y, members in sorted_bands:
+            if y <= total_y or y > total_y + 30:
+                continue
+            if len(members) < 2:
+                continue
+            seg_sum = sum(d["val"] for d in members if d["val"] != total_label["val"])
+            # Match within 1mm
+            if abs(seg_sum - total_label["val"]) <= 1:
+                # Filter out the total-run label itself if it's in this band
+                chosen_ladder = sorted(
+                    [d for d in members if d["val"] != total_label["val"]],
+                    key=lambda d: d["x0"],
+                )
+                break
+        if chosen_ladder:
+            break
+
+    if not chosen_ladder:
+        return []
+
+    segment_labels = chosen_ladder
+    total_mm = sum(d["val"] for d in segment_labels)
+    if total_mm == 0:
+        return []
+
+    # PDF run boundaries (approximate from leftmost-label-center to rightmost-label-center,
+    # with adjustment for first/last half-segment that extends past the labels)
+    first_label_center_pdf = (segment_labels[0]["x0"] + segment_labels[0]["x1"]) / 2
+    last_label_center_pdf = (segment_labels[-1]["x0"] + segment_labels[-1]["x1"]) / 2
+
+    # Half-widths in mm
+    first_half_mm = segment_labels[0]["val"] / 2
+    last_half_mm = segment_labels[-1]["val"] / 2
+    inner_mm = total_mm - first_half_mm - last_half_mm
+    inner_pdf = last_label_center_pdf - first_label_center_pdf
+
+    if inner_mm <= 0 or inner_pdf <= 0:
+        return []
+
+    pdf_per_mm = inner_pdf / inner_mm
+    run_start_pdf = first_label_center_pdf - first_half_mm * pdf_per_mm
+
+    # Cabinet outline y-range: approximately ladder_y + offset
+    ladder_y_pdf = min(d["y_top"] for d in segment_labels)
+    # Typical LH layout: cabinet outline ~50pt below labels, ~70pt tall
+    cabinet_top_pdf = ladder_y_pdf + 50
+    cabinet_bot_pdf = ladder_y_pdf + 120
+
+    # Compute each segment's pixel-accurate position
+    segments: list[CabinetSegment] = []
+    cum_mm = 0.0
+    for d in segment_labels:
+        x0_mm = cum_mm
+        x1_mm = cum_mm + d["val"]
+        x0_pdf = run_start_pdf + x0_mm * pdf_per_mm
+        x1_pdf = run_start_pdf + x1_mm * pdf_per_mm
+
+        segments.append(CabinetSegment(
+            width_mm=d["val"],
+            x0_px=x0_pdf * scale,
+            x1_px=x1_pdf * scale,
+            y0_px=cabinet_top_pdf * scale,
+            y1_px=cabinet_bot_pdf * scale,
+            band="plan",
+        ))
+        cum_mm += d["val"]
+
+    return segments
 
 
 def _identify_two_ladders(

@@ -86,6 +86,24 @@ class CabinetRow:
 # Extraction artifacts.
 # -----------------------------------------------------------------------------
 @dataclass
+class CabinetSegment:
+    """One cabinet position on the rendered blueprint, in IMAGE pixel coordinates.
+
+    These come from extracting the PDF dimension ladder positions and converting
+    them to pixels at the same DPI as the rendered blueprint image. The frontend
+    overlays SVG rectangles at these exact positions — no more guessed 0..1
+    normalized constants.
+    """
+
+    width_mm: int                       # the dimension label value
+    x0_px: float                        # left edge in image pixels
+    x1_px: float                        # right edge
+    y0_px: float                        # top of cabinet outline band
+    y1_px: float                        # bottom
+    band: str = "plan"                  # "plan" (base cabinets) or "elevation" (wall cabs from front view)
+
+
+@dataclass
 class GeometryEvidence:
     """What the geometry adapter (PDF parser, DXF parser, etc.) saw on the page.
 
@@ -100,6 +118,12 @@ class GeometryEvidence:
     title_block_text: str = ""
     finish_spec: dict[str, str] = field(default_factory=dict)             # e.g. {"싱크볼": "630 언더싱크용", ...}
     raw_text_strings: list[str] = field(default_factory=list)             # for debugging
+
+    # Pixel-accurate segment positions for the SVG overlay (Stage 1.5+)
+    image_width_px: int = 0
+    image_height_px: int = 0
+    segments: list[CabinetSegment] = field(default_factory=list)
+    render_dpi: int = 150
 
     # Path B/C only — empty in Path A
     polygons: list[dict] = field(default_factory=list)

@@ -59,6 +59,9 @@ export function ReviewWorkspace({
               pageNumber={variant.page_number}
               variantLabel={variant.label}
               rows={variant.rows}
+              segments={variant.segments}
+              imageWidthPx={variant.image_width_px}
+              imageHeightPx={variant.image_height_px}
             />
           )}
         </div>

@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/lib/store";
-import type { CabinetRow } from "@/lib/types";
+import type { CabinetRow, Segment } from "@/lib/types";
 
 interface Props {
   projectId: string;
   pageNumber: number;
   variantLabel: string;
   rows: CabinetRow[];
+  segments: Segment[];
+  imageWidthPx: number;
+  imageHeightPx: number;
 }
 
 export function BlueprintCanvas({
@@ -20,9 +23,11 @@ export function BlueprintCanvas({
   pageNumber,
   variantLabel,
   rows,
+  segments,
+  imageWidthPx,
+  imageHeightPx,
 }: Props) {
   const [zoom, setZoom] = useState(1);
-  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const imgUrl = api.blueprintImageUrl(projectId, pageNumber);
 
   const hoveredRowIndex = useUIStore((s) => s.hoveredRowIndex);
@@ -30,11 +35,17 @@ export function BlueprintCanvas({
   const setHoveredRow = useUIStore((s) => s.setHoveredRow);
   const setSelectedRow = useUIStore((s) => s.setSelectedRow);
 
-  // Compute approximate segment positions on the rendered PDF.
-  // The plan view sits roughly in the upper-left quadrant (x: 0.16-0.45 of page width,
-  // y: 0.42-0.70 of page height for the cabinet run line). We position SVG rectangles
-  // that align to base-cabinet rows by their dimensional widths.
-  const segments = computeSegments(rows);
+  // Map a BOM row index to its dimension-ladder segment (if it's a base cabinet
+  // whose width matches one of the extracted segment widths, in order).
+  const rowToSegment = mapRowsToSegments(rows, segments);
+
+  const activeRowIndex =
+    selectedRowIndex !== null ? selectedRowIndex : hoveredRowIndex;
+  const activeSegment =
+    activeRowIndex !== null ? rowToSegment.get(activeRowIndex) ?? null : null;
+  const isSelected = selectedRowIndex !== null;
+
+  const haveImageDims = imageWidthPx > 0 && imageHeightPx > 0;
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -46,6 +57,14 @@ export function BlueprintCanvas({
           </span>
           <span className="text-[var(--color-text-subtle)]">·</span>
           <span className="text-[var(--color-text-muted)]">{variantLabel}</span>
+          {segments.length > 0 && (
+            <>
+              <span className="text-[var(--color-text-subtle)]">·</span>
+              <span className="text-[10px] text-[var(--color-text-subtle)]">
+                {segments.length} segments mapped
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -91,48 +110,30 @@ export function BlueprintCanvas({
           <img
             src={imgUrl}
             alt={`Blueprint page ${pageNumber}`}
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
-            }}
             className="block max-w-full"
             draggable={false}
           />
 
-          {imgSize && (
+          {haveImageDims && activeSegment && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+              viewBox={`0 0 ${imageWidthPx} ${imageHeightPx}`}
               preserveAspectRatio="xMidYMid meet"
             >
-              {segments
-                .filter(
-                  (s) =>
-                    s.rowIndex === hoveredRowIndex ||
-                    s.rowIndex === selectedRowIndex
-                )
-                .map((s) => {
-                  const isSelected = s.rowIndex === selectedRowIndex;
-                  return (
-                    <g key={`${s.row}-${s.kind}`}>
-                      <rect
-                        x={s.x * imgSize.w}
-                        y={s.y * imgSize.h}
-                        width={s.w * imgSize.w}
-                        height={s.h * imgSize.h}
-                        fill={
-                          isSelected
-                            ? "rgba(37, 99, 235, 0.30)"
-                            : "rgba(37, 99, 235, 0.20)"
-                        }
-                        stroke="rgb(37, 99, 235)"
-                        strokeWidth={isSelected ? 5 : 3}
-                        rx={4}
-                        className="pointer-events-none"
-                      />
-                    </g>
-                  );
-                })}
+              <rect
+                x={activeSegment.x0_px}
+                y={activeSegment.y0_px}
+                width={activeSegment.x1_px - activeSegment.x0_px}
+                height={activeSegment.y1_px - activeSegment.y0_px}
+                fill={
+                  isSelected
+                    ? "rgba(37, 99, 235, 0.32)"
+                    : "rgba(37, 99, 235, 0.20)"
+                }
+                stroke="rgb(37, 99, 235)"
+                strokeWidth={isSelected ? 8 : 5}
+                rx={6}
+              />
             </svg>
           )}
         </div>
@@ -141,94 +142,62 @@ export function BlueprintCanvas({
   );
 }
 
-interface Segment {
-  row: number;
-  rowIndex: number;
-  kind: "base" | "wall";
-  // Normalized 0..1 coordinates relative to image
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+/**
+ * Map BOM rows to dimension-ladder segments.
+ *
+ * The PDF dimension ladder contains the kitchen-run segments left-to-right
+ * (e.g. [20, 280, 600, 400, 800, 20] for 26A). The BOM has rows for every
+ * cabinet/panel/trim. We want hovering "row 9" (찬넬렌지밑장 = 600mm range)
+ * to highlight the 600mm segment.
+ *
+ * Strategy:
+ * 1. Filter BOM rows to base cabinets only (C/CR/CS/CD2/CD3 etc).
+ * 2. They appear left-to-right in the same order as the inner ladder
+ *    segments (excluding the leading/trailing 20mm fillers).
+ * 3. Match by order; verify by width_mm.
+ */
+function mapRowsToSegments(
+  rows: CabinetRow[],
+  segments: Segment[]
+): Map<number, Segment> {
+  const result = new Map<number, Segment>();
+  if (segments.length < 3) return result;
 
-function computeSegments(rows: CabinetRow[]): Segment[] {
-  // Plan view location on the LH detail pages (landscape A3 ~2482x1755).
-  // The kitchen plan view (평면도) sits in the upper-left of the page;
-  // within it, the cabinet outline is a thin horizontal band.
-  //
-  // Coordinates are normalized 0..1 of the page image. Approximate — future
-  // Path B (DXF) adapter will give pixel-exact positions. Tuned for the
-  // bundled 26A sample.
-  const PLAN_X0 = 0.085;
-  const PLAN_X1 = 0.31;
-  const PLAN_RUN_W = PLAN_X1 - PLAN_X0;
+  // Inner segments — skip the 20mm fillers at start and end of the ladder
+  // (these are typically narrow end panels, not base cabinets).
+  const inner = segments.filter((s) => s.width_mm > 30);
+  if (inner.length === 0) return result;
 
-  // Base cabinet outline — the lower row of the plan rectangle.
-  // Visually overlays the cabinet drawing (where the sink/range icons sit),
-  // not the dimension labels strip above it.
-  const BASE_Y0 = 0.225;
-  const BASE_Y1 = 0.275;
+  // Filter base-cabinet rows in BOM order
+  const baseRows = rows.filter(
+    (r) =>
+      r.category === "목대" &&
+      r.width_mm !== null &&
+      isBaseCabinetCode(r.code)
+  );
 
-  // Wall cabinet outline — the upper row of the plan rectangle (dashed in
-  // the actual drawing, since it's a top-down view of overhead cabinets)
-  const WALL_Y0 = 0.180;
-  const WALL_Y1 = 0.215;
-
-  // Group dimensional rows by category (목대) and infer their position in the run.
-  // We treat panels (WP/BP/BI/FA/PL) as zero-width markers — they don't sit on the
-  // run line. Cabinets (W, B, C, CR, CD3, CS …) consume horizontal space.
-  const baseCabinetRows: CabinetRow[] = [];
-  const wallCabinetRows: CabinetRow[] = [];
-
-  for (const row of rows) {
-    if (row.category !== "목대" || row.width_mm === null) continue;
-    if (isPanelOrTrim(row.code)) continue;
-    if (isWallCabinet(row.code)) {
-      wallCabinetRows.push(row);
-    } else if (isBaseCabinet(row.code)) {
-      baseCabinetRows.push(row);
+  // Match by index, verify by width
+  for (let i = 0; i < Math.min(baseRows.length, inner.length); i++) {
+    const row = baseRows[i];
+    const seg = inner[i];
+    // Allow ±5mm tolerance for sub-millimeter rounding (e.g. 601 vs 600)
+    if (
+      row.width_mm !== null &&
+      Math.abs(row.width_mm - seg.width_mm) <= 5
+    ) {
+      result.set(row.index, seg);
+    } else {
+      // Fall back to width match anywhere in the inner segments
+      const exact = inner.find((s) => s.width_mm === row.width_mm);
+      if (exact) result.set(row.index, exact);
     }
   }
 
-  const segments: Segment[] = [];
-
-  function layout(
-    cabinets: CabinetRow[],
-    y0: number,
-    y1: number,
-    kind: "base" | "wall"
-  ) {
-    const totalMM = cabinets.reduce((s, r) => s + (r.width_mm ?? 0), 0);
-    if (totalMM === 0) return;
-    let cursor = 0;
-    for (const r of cabinets) {
-      const width_norm = ((r.width_mm ?? 0) / totalMM) * PLAN_RUN_W;
-      segments.push({
-        row: r.index,
-        rowIndex: r.index,
-        kind,
-        x: PLAN_X0 + cursor,
-        y: y0,
-        w: width_norm,
-        h: y1 - y0,
-      });
-      cursor += width_norm;
-    }
-  }
-
-  layout(baseCabinetRows, BASE_Y0, BASE_Y1, "base");
-  layout(wallCabinetRows, WALL_Y0, WALL_Y1, "wall");
-
-  return segments;
+  return result;
 }
 
-function isPanelOrTrim(code: string): boolean {
-  return ["WP", "BP", "BI", "FA", "PL"].includes(code);
-}
-function isWallCabinet(code: string): boolean {
-  return code === "W" || code === "WH" || code === "WE" || code === "WC";
-}
-function isBaseCabinet(code: string): boolean {
-  return ["B", "BR", "BS", "BD2", "BD3", "C", "CR", "CS", "CD2", "CD3"].includes(code);
+function isBaseCabinetCode(code: string): boolean {
+  return ["B", "BR", "BS", "BD2", "BD3", "C", "CR", "CS", "CD2", "CD3"].includes(
+    code
+  );
 }

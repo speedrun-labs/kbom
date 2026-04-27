@@ -219,6 +219,17 @@ class ValidationOut(BaseModel):
     detail: str = ""
 
 
+class SegmentOut(BaseModel):
+    """Pixel-accurate cabinet segment position on the rendered blueprint."""
+
+    width_mm: int
+    x0_px: float
+    x1_px: float
+    y0_px: float
+    y1_px: float
+    band: str
+
+
 class VariantDetail(BaseModel):
     code: str
     label: str
@@ -230,6 +241,9 @@ class VariantDetail(BaseModel):
     is_approved: bool
     cost_per_unit: Optional[int] = None
     cost_total: Optional[int] = None
+    image_width_px: int = 0
+    image_height_px: int = 0
+    segments: list[SegmentOut] = []
 
 
 # -----------------------------------------------------------------------------
@@ -415,6 +429,21 @@ def get_variant(pid: str, code: str):
                 if r.rule_citation
             })
             cost_per_unit, cost_total = _compute_cost(rows_out, p["units_per_variant"].get(code, 1))
+            geom = v.geometry
+            segments_out = []
+            img_w = img_h = 0
+            if geom is not None:
+                img_w = geom.image_width_px
+                img_h = geom.image_height_px
+                for s in geom.segments:
+                    segments_out.append(SegmentOut(
+                        width_mm=s.width_mm,
+                        x0_px=s.x0_px,
+                        x1_px=s.x1_px,
+                        y0_px=s.y0_px,
+                        y1_px=s.y1_px,
+                        band=s.band,
+                    ))
             return VariantDetail(
                 code=v.type_code,
                 label=v.variant_label,
@@ -431,6 +460,9 @@ def get_variant(pid: str, code: str):
                 is_approved=v.type_code in p["approved"],
                 cost_per_unit=cost_per_unit,
                 cost_total=cost_total,
+                image_width_px=img_w,
+                image_height_px=img_h,
+                segments=segments_out,
             )
     raise HTTPException(status_code=404, detail=f"Variant {code} not found")
 

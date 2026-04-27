@@ -42,6 +42,15 @@ export interface VariantSummary {
   is_approved: boolean;
 }
 
+export interface Segment {
+  width_mm: number;
+  x0_px: number;
+  x1_px: number;
+  y0_px: number;
+  y1_px: number;
+  band: string;
+}
+
 export interface VariantDetail {
   code: string;
   label: string;
@@ -53,6 +62,9 @@ export interface VariantDetail {
   is_approved: boolean;
   cost_per_unit: number | null;
   cost_total: number | null;
+  image_width_px: number;
+  image_height_px: number;
+  segments: Segment[];
 }
 
 export interface ProjectSummary {

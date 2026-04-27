@@ -101,43 +101,38 @@ export function BlueprintCanvas({
 
           {imgSize && (
             <svg
-              className="absolute inset-0 pointer-events-none"
-              width={imgSize.w}
-              height={imgSize.h}
+              className="absolute inset-0 w-full h-full pointer-events-none"
               viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+              preserveAspectRatio="xMidYMid meet"
             >
-              {segments.map((s) => {
-                const isHovered = s.rowIndex === hoveredRowIndex;
-                const isSelected = s.rowIndex === selectedRowIndex;
-                return (
-                  <rect
-                    key={`${s.row}-${s.kind}`}
-                    x={s.x * imgSize.w}
-                    y={s.y * imgSize.h}
-                    width={s.w * imgSize.w}
-                    height={s.h * imgSize.h}
-                    fill={
-                      isSelected
-                        ? "rgba(37, 99, 235, 0.18)"
-                        : isHovered
-                        ? "rgba(37, 99, 235, 0.10)"
-                        : "transparent"
-                    }
-                    stroke={
-                      isSelected
-                        ? "rgb(37, 99, 235)"
-                        : isHovered
-                        ? "rgba(37, 99, 235, 0.5)"
-                        : "transparent"
-                    }
-                    strokeWidth={2}
-                    className="pointer-events-auto cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(s.rowIndex)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                    onClick={() => setSelectedRow(s.rowIndex)}
-                  />
-                );
-              })}
+              {segments
+                .filter(
+                  (s) =>
+                    s.rowIndex === hoveredRowIndex ||
+                    s.rowIndex === selectedRowIndex
+                )
+                .map((s) => {
+                  const isSelected = s.rowIndex === selectedRowIndex;
+                  return (
+                    <g key={`${s.row}-${s.kind}`}>
+                      <rect
+                        x={s.x * imgSize.w}
+                        y={s.y * imgSize.h}
+                        width={s.w * imgSize.w}
+                        height={s.h * imgSize.h}
+                        fill={
+                          isSelected
+                            ? "rgba(37, 99, 235, 0.30)"
+                            : "rgba(37, 99, 235, 0.20)"
+                        }
+                        stroke="rgb(37, 99, 235)"
+                        strokeWidth={isSelected ? 5 : 3}
+                        rx={4}
+                        className="pointer-events-none"
+                      />
+                    </g>
+                  );
+                })}
             </svg>
           )}
         </div>
@@ -158,21 +153,25 @@ interface Segment {
 }
 
 function computeSegments(rows: CabinetRow[]): Segment[] {
-  // Plan view convention on these LH detail pages:
-  //   ~0.16 to ~0.45 horizontally (left half of page minus margins)
-  //   base-cabinet run sits ~0.59 to ~0.66 vertically
-  //   wall-cabinet run sits ~0.51 to ~0.55 vertically
-  // (Approximate — works for the bundled sample. Real version would use
-  // segment positions extracted from the PDF dimension ladder.)
-  const PLAN_X0 = 0.165;
-  const PLAN_X1 = 0.45;
+  // Plan view location on the LH detail pages (landscape A3 ~2482x1755).
+  // The kitchen plan view (평면도) sits in the upper-left of the page;
+  // within it, the cabinet outline is a thin horizontal band.
+  //
+  // Coordinates are normalized 0..1 of the page image. Approximate — future
+  // Path B (DXF) adapter will give pixel-exact positions. Tuned for the
+  // bundled 26A sample.
+  const PLAN_X0 = 0.085;
+  const PLAN_X1 = 0.31;
   const PLAN_RUN_W = PLAN_X1 - PLAN_X0;
 
-  const BASE_Y0 = 0.59;
-  const BASE_Y1 = 0.66;
+  // Base cabinet outline — the lower row of the plan rectangle
+  const BASE_Y0 = 0.205;
+  const BASE_Y1 = 0.235;
 
-  const WALL_Y0 = 0.51;
-  const WALL_Y1 = 0.55;
+  // Wall cabinet outline — the upper row of the plan rectangle (dashed in
+  // the actual drawing, since it's a top-down view of overhead cabinets)
+  const WALL_Y0 = 0.135;
+  const WALL_Y1 = 0.165;
 
   // Group dimensional rows by category (목대) and infer their position in the run.
   // We treat panels (WP/BP/BI/FA/PL) as zero-width markers — they don't sit on the

@@ -164,14 +164,16 @@ function computeSegments(rows: CabinetRow[]): Segment[] {
   const PLAN_X1 = 0.31;
   const PLAN_RUN_W = PLAN_X1 - PLAN_X0;
 
-  // Base cabinet outline — the lower row of the plan rectangle
-  const BASE_Y0 = 0.205;
-  const BASE_Y1 = 0.235;
+  // Base cabinet outline — the lower row of the plan rectangle.
+  // Visually overlays the cabinet drawing (where the sink/range icons sit),
+  // not the dimension labels strip above it.
+  const BASE_Y0 = 0.225;
+  const BASE_Y1 = 0.275;
 
   // Wall cabinet outline — the upper row of the plan rectangle (dashed in
   // the actual drawing, since it's a top-down view of overhead cabinets)
-  const WALL_Y0 = 0.135;
-  const WALL_Y1 = 0.165;
+  const WALL_Y0 = 0.180;
+  const WALL_Y1 = 0.215;
 
   // Group dimensional rows by category (목대) and infer their position in the run.
   // We treat panels (WP/BP/BI/FA/PL) as zero-width markers — they don't sit on the

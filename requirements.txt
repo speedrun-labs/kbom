@@ -1,24 +1,25 @@
-# Core dependencies for the KBOM Stage 1 prototype
+# KBOM — Python pipeline + FastAPI server dependencies
+# Install: python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# (Python 3.12+ required for modern type-hint syntax)
+
+# Web server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.20         # required for FastAPI file upload
 
 # PDF parsing
-pdfplumber>=0.11.0
-pymupdf>=1.24.0
+pdfplumber>=0.11.0               # text + dimension labels
+pymupdf>=1.24.0                  # page rendering as PNG
 
 # Excel
-openpyxl>=3.1.0
-xlrd>=2.0.0
+openpyxl>=3.1.0                  # write 장등록 / 상품등록 / 기초입력
+xlrd>=2.0.0                      # legacy .xls read (template auto-conversion)
 
 # Image handling
 Pillow>=10.0.0
 
-# Data
-pandas>=2.0.0
-
-# UI
-streamlit>=1.36.0
-
-# AI vision (for Stage 1 we use Claude API)
+# AI vision (live mode; synthetic fallback works without an API key)
 anthropic>=0.34.0
 
 # Misc
-pyyaml>=6.0
+pyyaml>=6.0                      # rule library serialization

@@ -14,16 +14,20 @@ __pycache__/
 venv/
 env/
 
-# IDE
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/next-env.d.ts
+
+# IDE / OS
 .vscode/
 .idea/
 *.swp
 .DS_Store
 
-# Streamlit
-.streamlit/secrets.toml
-
-# Data — kept locally, not committed
+# Phase 0 runtime artifacts (kept local, not committed)
 phase0/extracts/
 phase0/pages/
 phase0/crops*/
@@ -37,31 +41,13 @@ published_standards/*.xls
 published_standards/*.xlsx
 published_standards/extracts/
 
-# Generated artifacts
-data/runs/
-*.log
-
-# Environment
-.env
-.env.local
-
-# Next.js
-web/node_modules/
-web/.next/
-web/out/
-web/build/
-web/next-env.d.ts
-
-# Python venv
-.venv/
-
-# FastAPI / Pydantic cache
-__pycache__/
-.pytest_cache/
-
 # Demo runtime artifacts
 .kbom-state.json
 .logs/
 .runs/
 .uploads/
 
+# Logs / env
+*.log
+.env
+.env.local

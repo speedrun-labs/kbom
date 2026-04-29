@@ -1,33 +1,37 @@
-# CLAUDE.md — NEFS Kitchen / KBOM project context
+# CLAUDE.md — KBOM project context
 
 This file is auto-loaded by Claude Code when working in this directory.
-It captures the durable context that doesn't belong in scattered chat history.
+Read this first in any new session before proposing changes.
 
 ---
 
-## What this project is
+## What this is
 
 **KBOM** (Kitchen BOM) — an AI pipeline + web app that turns construction-company
 blueprint PDFs into a populated kitchen Bill-of-Materials inside the customer's
-existing Excel template. The Stage 1 pilot is for **NEFS**, a Korean full-turnkey
+existing Excel template. Stage 1 pilot is for **NEFS**, a Korean full-turnkey
 kitchen fabrication + install company that bids primarily on LH (Korea Land &
 Housing Corporation) public-housing projects.
 
-**Why it exists**: 6 NEFS FTEs spend their time manually scanning blueprint PDFs
+**Why it exists**: 6 NEFS FTEs spend their time manually reading blueprint PDFs
 and itemizing cabinets into Excel. 3–4 major blueprint revisions per project,
 each historically a from-scratch redo. Install-side rules (2x4s, outlets,
 plumbing offsets) aren't written down anywhere. Delays cascade into the
 purchase team, which is the primary downstream consumer of the BOM today.
 
-**Primary user persona**: NEFS purchase team. Tool is a *purchasing decision
-engine*, not just a BOM producer. Output should optimize for pre-ordering
-against tight construction schedules.
+**Primary user**: NEFS purchase team. Tool is a *purchasing decision engine*,
+not just a BOM producer. Output optimizes for pre-ordering against tight
+construction schedules.
+
+**Mental model**: We don't replace the customer's Excel template — that
+already does the math. We **feed it** by automating the manual PDF →
+21-input-rows transcription step that today consumes 6 person-years annually.
 
 ---
 
 ## The user (Darren / darren@hgvp.xyz)
 
-- Strategic/product lead at NEFS, **non-Korean-speaking**.
+- Strategic / product lead at NEFS, **non-Korean-speaking**.
 - Treat all responses **English-first**. Korean terms (sheet names, cabinet
   types, finish specs) get an English gloss inline:
   `원가산출표 (cost calculation sheet)`, `목대 (custom frame parts)`,
@@ -36,15 +40,13 @@ against tight construction schedules.
   "how does X work?", anchor the answer to a specific row / specific
   blueprint / specific transformation, not a hand-wavy mechanism.
 - Asks pointed business questions ("how does this help current workflow?",
-  "how is this scalable?", "how do users check the formulas?"). Answer
+  "how is this scalable?", "do we need this instead of Excel?"). Answer
   directly with numbers and trade-offs; honest about what's NOT solved.
-- Fast pivot: went from "explore the problem" → "approved technical plan"
-  → "productization design" → "build Stage 1 prototype" in days. Match
-  that pace.
+- Catches sleight-of-hand fast. Don't oversell. Diagnose, fix, ship.
 
 ---
 
-## How to run the demo (single command)
+## How to run the demo
 
 ```bash
 cd "/Users/d/Desktop/NEFS Kitchen"
@@ -54,13 +56,13 @@ cd "/Users/d/Desktop/NEFS Kitchen"
 ```
 
 The script:
-- Auto-creates Python `.venv/` (Python 3.12) with FastAPI + kbom deps
+- Auto-creates Python `.venv/` (Python 3.12 required) with FastAPI + kbom deps
 - Auto-runs `npm install` in `web/` if `node_modules/` missing
 - Starts FastAPI on `:8765`, Next.js on `:3737`
 - Health-checks both, prints URLs, leaves them running
 - Logs at `.logs/api.log` and `.logs/web.log`
 
-**Demo script** (90 seconds): see [README.md](./README.md).
+Demo flow (90 seconds): see [README.md](./README.md).
 
 ---
 
@@ -71,21 +73,21 @@ The script:
 │  Next.js 16       │ ───────────────▶ │  FastAPI :8765     │
 │  (web/, :3737)    │                  │  (server/main.py)  │
 │  - Tailwind 4     │                  │                    │
-│  - TanStack       │                  │  wraps kbom/       │
+│  - TanStack Query │                  │  wraps kbom/       │
 │  - Zustand        │                  │  ├─ geometry/      │
 │  - cmdk (⌘K)      │                  │  ├─ vision/        │
 │  - lucide         │                  │  ├─ rules/ (R1–R8) │
-└───────────────────┘                  │  ├─ catalog/lh_…   │
-                                       │  ├─ excel/         │
-                                       │  └─ pipeline.py    │
-                                       └────────────────────┘
+│  - PDF rendered   │                  │  ├─ catalog/lh_…   │
+│    server-side    │                  │  ├─ excel/         │
+│    via API        │                  │  └─ pipeline.py    │
+└───────────────────┘                  └────────────────────┘
                                                   │
                                                   ▼
                                        ┌────────────────────┐
                                        │  Customer's .xls   │
                                        │  template          │
-                                       │  (장등록/상품등록/ │
-                                       │   기초입력 inputs) │
+                                       │  (장등록/상품등록/  │
+                                       │   기초입력 inputs)  │
                                        │  + LibreOffice     │
                                        │  headless recalc   │
                                        └────────────────────┘
@@ -93,11 +95,11 @@ The script:
 
 Two invariants:
 - **Excel = source of truth for math** (regulators audit the .xlsx file directly)
-- **Postgres/JSON = source of truth for provenance** ("who entered what, when, with what AI confidence")
+- **Postgres/JSON = source of truth for provenance** (who entered what, when, with what AI confidence)
 
-Persistence: `.kbom-state.json` at project root. Project metadata + row
-overrides survive restart. Extraction results are RAM-only and re-run on
-demand from the source PDF.
+**Persistence**: `.kbom-state.json` at project root. Project metadata + row
+overrides + approvals survive restart. Extraction results are RAM-only and
+re-run on demand from the source PDF.
 
 ---
 
@@ -106,71 +108,66 @@ demand from the source PDF.
 ```
 NEFS Kitchen/
 ├── CLAUDE.md              ← THIS FILE — read first in any new session
-├── README.md              ← User-facing demo guide (90-sec walkthrough script)
+├── README.md              ← User-facing demo + architecture (public)
+├── LICENSE                ← MIT
 ├── start-demo.sh          ← Boot both servers
 ├── stop-demo.sh           ← Kill them
-├── requirements.txt       ← Python deps for the kbom pipeline
+├── requirements.txt       ← Python deps (FastAPI + kbom pipeline)
 │
 ├── kbom/                  ← Core pipeline (Python, importable package)
-│   ├── models.py          CabinetRow, RuleCitation, Project, etc.
+│   ├── models.py          CabinetRow, RuleCitation, CabinetSegment, Project
 │   ├── geometry/
-│   │   └── pdf_parser.py  Path A: PDF parser, variant detection
+│   │   └── pdf_parser.py  Path A: PDF parser, variant detection, segment extraction
 │   ├── vision/
 │   │   └── claude_extractor.py Live Claude API + synthetic fallback
 │   ├── rules/
-│   │   └── engine.py      R1–R8 (proven), with stubs for R9–R23
+│   │   └── engine.py      R1–R8 implemented (R9–R23 documented in standards report)
 │   ├── catalog/
-│   │   └── lh_v2025.py    LH cabinet vocabulary (WP/W/BI/C/CR/...) + standard products
+│   │   └── lh_v2025.py    LH cabinet vocabulary + standard products
 │   ├── excel/
-│   │   ├── populator.py   Write 장등록 + 상품등록 + 기초입력 (auto-converts .xls → .xlsx)
+│   │   ├── populator.py   Write 장등록 + 상품등록 + 기초입력 (auto .xls→.xlsx)
 │   │   ├── recalc.py      LibreOffice headless recalc
 │   │   └── reader.py      Read computed values + formulas
 │   └── pipeline.py        Orchestrate extract → rules → write → recalc → read
 │
-├── server/main.py         ← FastAPI wrapping kbom (REST API)
+├── server/main.py         ← FastAPI wrapping kbom (REST API on :8765)
 │
 ├── web/                   ← Next.js 16 frontend
 │   ├── app/
 │   │   ├── page.tsx                     project list (/)
 │   │   ├── projects/[id]/page.tsx       review workspace
 │   │   ├── layout.tsx                   root layout + QueryProvider + CommandPalette
-│   │   └── globals.css                  Tailwind 4 theme (CSS vars, no shadcn registry)
+│   │   └── globals.css                  Tailwind 4 theme
 │   ├── components/
-│   │   ├── layout/
-│   │   │   ├── TopBar.tsx               KBOM logo + ⌘K + user
-│   │   │   └── LeftRail.tsx             workspace nav + active projects
-│   │   ├── projects/
-│   │   │   └── NewProjectDialog.tsx     upload PDF + create project
+│   │   ├── layout/{TopBar,LeftRail}.tsx
+│   │   ├── projects/NewProjectDialog.tsx  Upload PDF + create project
 │   │   ├── review/
-│   │   │   ├── ReviewWorkspace.tsx      the 3-pane main view
-│   │   │   ├── BlueprintCanvas.tsx      rendered PDF + SVG segment overlay
-│   │   │   ├── BomGrid.tsx              extracted-rows table with J/K nav
-│   │   │   ├── EditableCell.tsx         click W/D/H → input → PATCH
-│   │   │   ├── Inspector.tsx            right-side drawer with provenance
-│   │   │   ├── ValidationsBar.tsx       bottom bar: cost, approve, download
-│   │   │   ├── VariantTabs.tsx          tabs across 7 unit-type variants
-│   │   │   └── ConfidencePill.tsx       green/yellow/red/rule/spec badges
+│   │   │   ├── ReviewWorkspace.tsx      3-pane main view
+│   │   │   ├── BlueprintCanvas.tsx      Rendered PDF + SVG segment overlay
+│   │   │   ├── BomGrid.tsx              Extracted-rows table with J/K nav
+│   │   │   ├── EditableCell.tsx         Click W/D/H → input → PATCH
+│   │   │   ├── Inspector.tsx            Right-side drawer with provenance
+│   │   │   ├── ValidationsBar.tsx       Bottom bar: cost, approve, download
+│   │   │   ├── VariantTabs.tsx          Tabs across unit-type variants
+│   │   │   └── ConfidencePill.tsx       Green/yellow/red/rule/spec badges
 │   │   ├── ui/                          shadcn-style primitives
-│   │   │   ├── button.tsx, badge.tsx, card.tsx, dialog.tsx
 │   │   ├── providers/QueryProvider.tsx  TanStack Query
-│   │   ├── CommandPalette.tsx           ⌘K palette
-│   │   └── CommandPalette.css           cmdk styling
+│   │   └── CommandPalette.tsx           ⌘K palette
 │   ├── lib/
-│   │   ├── api.ts                       typed API client
-│   │   ├── types.ts                     mirrors pydantic models
-│   │   ├── store.ts                     Zustand UI state (selectedRow, hover, inspector)
+│   │   ├── api.ts                       Typed API client
+│   │   ├── types.ts                     Mirrors pydantic models
+│   │   ├── store.ts                     Zustand UI state
 │   │   └── utils.ts                     cn() + KRW formatter
 │   └── package.json                     Next.js 16, React 19, Tailwind 4
 │
-├── phase0/                ← Validation artifacts (Phase 0)
-│   ├── domain_rules.py    First-iteration rules R1–R8 (since ported into kbom/rules/)
+├── phase0/                ← Validation artifacts
+│   ├── domain_rules.py    First-iteration rules (since ported into kbom/rules/)
 │   ├── ground_truth_26A.json  21-row canonical BOM from sample Excel
-│   ├── report.md          Validation report
-│   ├── report_extension.md  Cross-variant + rules-proof
-│   └── ...
+│   ├── report.md          Validation report (Tests 1–3)
+│   └── report_extension.md  Cross-variant + rules-proof
 │
-├── published_standards/   ← LH catalog (DO NOT COMMIT the binary PDFs/xlsx)
-│   └── standards_mining_report.md  ← 23-rule library with citations (committed)
+├── published_standards/   ← LH catalog mining (committed: report only)
+│   └── standards_mining_report.md  ← 23-rule library with citations
 │
 ├── .venv/                 ← Python venv (gitignored)
 ├── .logs/                 ← Demo logs (gitignored)
@@ -182,34 +179,35 @@ NEFS Kitchen/
 
 ## What's working (Stage 1 — demo-ready)
 
-- ✅ PDF variant detection (7 variants in the bundled sample)
+- ✅ PDF variant detection (7 unit-type variants in the bundled sample)
+- ✅ Pixel-accurate segment extraction from PDF dimension ladders (replaces hardcoded coords)
 - ✅ Vision extraction (synthetic fallback for fast demo without API costs)
 - ✅ Rule engine R1–R8 (proven 76% → 100% strict match on the sample)
 - ✅ Excel populator (writes 장등록 + 상품등록 + 기초입력; auto .xls → .xlsx)
 - ✅ LibreOffice headless recalc (proven 0% variance round-trip)
-- ✅ JSON-file persistence (`.kbom-state.json` survives server restart)
-- ✅ Real PDF upload flow (multipart → extraction → routes to project)
+- ✅ JSON-file persistence (`.kbom-state.json` survives restart)
+- ✅ Real PDF upload (multipart → extraction → routes to project)
 - ✅ Real cost computation (per-row heuristic + 30% labor markup)
 - ✅ Inline cell editing (click W/D/H → PATCH → source flips to "human")
-- ✅ Blueprint↔row coordination (hover/select row → SVG rect on PDF)
-- ✅ Cell inspector drawer with full provenance (formula + AI confidence + rule citation)
+- ✅ **Blueprint↔row coordination** (hover/select row → SVG rect on PDF, pixel-accurate)
+- ✅ Cell inspector with full provenance (formula + AI confidence + rule citation)
 - ✅ ⌘K command palette (project search + actions)
 - ✅ Excel download endpoint (returns the populated workbook)
 - ✅ Variant tabs with flagged-count badges and approval ✓
 - ✅ Validations bar with cost preview + approve mutation
 
-## What's NOT in Stage 1 (deferred to roadmap)
+## What's NOT in Stage 1 (deferred per the approved roadmap)
 
-- ⏳ Multi-tenant isolation, RBAC, action log (Stage 2)
+- ⏳ Multi-tenant isolation, RBAC, full action log (Stage 2)
+- ⏳ Immutable per-approval snapshots in versioned object storage (Stage 2)
 - ⏳ Diff engine for blueprint revisions v1→v2 (Stage 3)
-- ⏳ Purchasing integration (supplier registry, PO generation, ERP push) (Stage 4)
+- ⏳ Purchasing integration — supplier registry, PO generation, ERP push (Stage 4)
 - ⏳ Mobile install app + as-built capture (Stage 5)
 - ⏳ Path B (PDF→DXF) and Path C (native DWG) geometry adapters (Stage 2+)
-- ⏳ Real LibreOffice recalc inside the request path (currently heuristic cost; the
-  recalc machinery exists, just not wired into the cost endpoint)
-- ⏳ R9–R23 rule implementations (catalog-cited but stubbed in `kbom/rules/engine.py`)
-- ⏳ Cell-inspector "Open in Excel" button (data path is built, just needs the
-  download to scroll Excel to the cited cell)
+- ⏳ Real LibreOffice recalc inside the request path (recalc machinery is built;
+  cost endpoint currently uses heuristic to avoid 5–30s latency)
+- ⏳ R9–R23 rule implementations (catalog-cited but stubbed)
+- ⏳ Cell-inspector "Open in Excel" button (data path is built; needs Excel deep-link)
 
 ---
 
@@ -226,25 +224,23 @@ NEFS's 18-tab Excel is a **calculation engine**, not a document.
    - C4 = TYPE (e.g. "26A"), C5 = 세대수
 
 **Computed views** (DO NOT write here — they're VLOOKUP/OFFSET formulas):
-- `원가산출표` (the "cabinet list" the project owner pointed at — but it's
-  actually a *view* of `장등록` + `상품등록`, not raw data)
+- `원가산출표` (the "cabinet list" — actually a *view* of `장등록` + `상품등록`)
 - `자재구성표(BODY/DOOR)` — material breakdown
 - `BOM구성표` — hardware counts (via `DATA(철물구성)` rules)
 - `일위대가표` — cost rollup (6,400+ rows of formulas)
 
 **Cabinet code system in 장등록**: `WP, W, BI, C, CR, CD3, CS, BP, FA, PL`.
-This differs from the codes in `DATA(철물구성)` which uses `B, BR, BS, BD3` etc.
-without 찬넬 prefix. The two coexist; 장등록 rows reference 철물구성 rules
-through internal mapping.
+This differs from `DATA(철물구성)` codes (`B, BR, BS, BD3` without 찬넬 prefix).
+The two coexist; 장등록 rows reference 철물구성 rules through internal mapping.
 
-**Row order matters in 장등록** — per-row computations cascade into per-row
-downstream values. Convention: wall-cab assembly first (panels + cabs),
-then 밑장휠라, then base run (plain → range → drawer → sink), then BP/FA/PL trim.
+**Row order matters in 장등록** — per-row computations cascade. Convention:
+wall-cab assembly first (panels + cabs), then 밑장휠라, then base run
+(plain → range → drawer → sink), then BP/FA/PL trim.
 
 **Exact-value sensitivity**: 1mm differences propagate. Excel uses
 `찬넬렌지밑장 W=601` (engineered for hob-recess clearance); blueprint shows
-the rounded `600`. Pipeline should fetch dimensions from 장등록 catalog,
-not blindly trust dimension-ladder labels in the PDF.
+`600`. Pipeline should fetch dimensions from 장등록 catalog where possible,
+not blindly trust dimension-ladder labels.
 
 ---
 
@@ -257,8 +253,8 @@ R9–R23 documented but stubbed.
 | Group | Rules | Source |
 |---|---|---|
 | **R1–R8** | Round-trip-derived: outer panels 860H, base end panel, base filler, fascia/baseboard 2400 stock, range-base 550H, panel dim swap, accessory catalog | NEFS Excel round-trip (Phase 0) |
-| **R9–R16** | Cabinet-side: countertop seamless ≤ 2400, drawer rail clearance, lighting scope, pull-out basket hangers, ... | LH 표준상세도 V2025.01, DA-91-1xx pages |
-| **R17–R23** | Install-side: baseboard 150H + 60mm offset, flooring/paint don't extend behind cabinets, wall-tile 100mm reveal, upper-cab ceiling gap max 25mm, ... | LH 표준상세도, DA-91-150 to 155 |
+| **R9–R16** | Cabinet-side: countertop seamless ≤ 2400, drawer rail clearance, lighting scope, pull-out basket hangers | LH 표준상세도 V2025.01, DA-91-1xx pages |
+| **R17–R23** | Install-side: baseboard 150H + 60mm offset, flooring/paint don't extend behind cabinets, wall-tile 100mm reveal, upper-cab ceiling gap max 25mm | LH 표준상세도, DA-91-150 to 155 |
 
 Every rule has a **document citation** (LH catalog page or round-trip
 reference). The cell inspector surfaces these — click any row, see why it
@@ -272,10 +268,12 @@ exists.
 2. **Concrete over abstract** — "for the sink base in your sample, here's
    what happens" beats "in general the pipeline does X."
 3. **Honest about what's NOT solved** — Darren caught the SVG sizing bug
-   immediately; he doesn't tolerate sleight-of-hand.
+   immediately and pushed back when I oversold the hotfix. He doesn't
+   tolerate sleight-of-hand. Diagnose, fix, ship.
 4. **Numbers when possible** — "76% → 100% after rules", "₩222.4M total",
    "0% variance across 154,596 cells". Avoid vague claims.
-5. **No defensive responses** when bugs surface — diagnose, fix, ship.
+5. **Frame against Excel-alone, not against nothing**. The customer already
+   has Excel; KBOM's value is what it adds beyond Excel-alone.
 
 ---
 
@@ -301,20 +299,20 @@ captures the full productization roadmap. Key decisions locked in:
 
 ## Known issues / things that need follow-up
 
-- **Blueprint segment overlay coordinates are approximate.** The SVG sizing
-  bug is fixed (was natural pixel size; now `w-full h-full + viewBox`),
-  but the row→segment position mapping uses hardcoded normalized coords
-  for the landscape A3 layout. Tuned for the bundled 26A sample. Other
-  unit types may not align as well. Real fix: Path B (PDF→DXF) gives
-  exact polygon coordinates.
 - **Cost calculation is heuristic.** ~₩250k/m² of cabinet frontage + product
   flat rates + 30% labor markup. Final number should come from the actual
   Excel recalc through 일위대가표 — the recalc machinery is built but not
   wired into the cost endpoint (would add 5–30s to the request).
 - **Synthetic vision mode** returns the 26A sample BOM regardless of the
   uploaded PDF. To get real extraction, set `ANTHROPIC_API_KEY` env var
-  and uncomment the live path in `kbom/vision/claude_extractor.py`.
+  (the live path in `kbom/vision/claude_extractor.py` is wired but commented).
 - **Single-tenant**. Login, RBAC, action log are Stage 2 work.
+- **Segment extraction y-bounds use a heuristic** (50pt below dim labels,
+  120pt span). Pixel-accurate horizontally; vertically approximate. Path B
+  (DXF) gives exact polygon coordinates and is the proper long-term fix.
+- **Synthetic mode masks variant differences.** All 7 variants currently show
+  the same 26A BOM in synthetic mode. Live API mode would extract per-variant
+  rows. For demo purposes, synthetic is fast + free + deterministic.
 
 ---
 
@@ -350,6 +348,8 @@ cd web && npm run dev -- --port 3737
 **Plan file** (the strategic doc with the full productization roadmap):
 `/Users/d/.claude/plans/users-d-downloads-1-lh-3-a2bl-26a-xls-peaceful-sun.md`
 
+**Repo**: https://github.com/speedrun-labs/kbom
+
 ---
 
-*Last updated: 2026-04-27 — Stage 1 prototype demo-ready.*
+*Last updated: 2026-04-28 — Stage 1 prototype demo-ready, pixel-accurate segments shipped.*
